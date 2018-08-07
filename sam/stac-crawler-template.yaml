@@ -1,0 +1,91 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Description: 'Static STAC Crawler'
+
+Globals:
+  Function:
+    Runtime: python3.6
+
+Resources:
+
+  #################################################
+  # Loggroup start
+  #################################################
+
+  TaskLogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      RetentionInDays: 7
+
+  #################################################
+  # Loggroup end
+  #################################################
+
+  #################################################
+  # Roles start
+  #################################################
+
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+        # @todo check if ReadOnlyAccess is needed with FullAccess
+        - "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
+        - "arn:aws:iam::aws:policy/AmazonSQSFullAccess"
+      Path: "/"
+
+  #################################################
+  # Roles end
+  #################################################
+
+  #################################################
+  # SQS start 
+  #################################################
+
+  CatalogCrawlQueue:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      MessageRetentionPeriod: 1209600
+
+  #################################################
+  # SQS end
+  #################################################
+
+  #################################################
+  # Lambda start (include dead letter queues)
+  #################################################
+
+  GeneralLambdaDLQ: 
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      MessageRetentionPeriod: 1209600
+
+  CrawlStartFunction:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      CodeUri: crawl
+      Handler: crawl_start.handler
+      Role: !GetAtt LambdaRole.Arn
+      Policies:
+      Description: Starts crawling process
+      Timeout: 300
+      Environment:
+        Variables:
+          CATALOG_CRAWL_QUEUE: !Ref CatalogCrawlQueue
+      DeadLetterQueue:
+        Type: 'SQS'
+        TargetArn: !GetAtt GeneralLambdaDLQ.Arn
+
+  #################################################
+  # Lambda end
+  #################################################
