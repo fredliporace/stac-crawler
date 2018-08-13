@@ -16,6 +16,7 @@ def start_crawl(root_catalog_url, to_be_visited_queue):
     for clink in clinks:
         SQS_CLIENT.send_message(QueueUrl=to_be_visited_queue,
                                 MessageBody=clink)
+        print('Inserting ', clink)
 
 def handler(event, context):
     """Lambda entry point

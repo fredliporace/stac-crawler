@@ -9,19 +9,6 @@ Globals:
 Resources:
 
   #################################################
-  # Loggroup start
-  #################################################
-
-  TaskLogGroup:
-    Type: 'AWS::Logs::LogGroup'
-    Properties:
-      RetentionInDays: 7
-
-  #################################################
-  # Loggroup end
-  #################################################
-
-  #################################################
   # Roles start
   #################################################
 
@@ -42,6 +29,7 @@ Resources:
         # @todo check if ReadOnlyAccess is needed with FullAccess
         - "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
         - "arn:aws:iam::aws:policy/AmazonSQSFullAccess"
+        - "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"
       Path: "/"
 
   #################################################
@@ -49,13 +37,21 @@ Resources:
   #################################################
 
   #################################################
-  # SQS start 
+  # SQS start (include triggers)
   #################################################
 
   CatalogCrawlQueue:
     Type: 'AWS::SQS::Queue'
     Properties:
       MessageRetentionPeriod: 1209600
+      VisibilityTimeout: 180
+
+  CatalogCrawTrigger:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 10
+      EventSourceArn: !GetAtt [CatalogCrawlQueue, Arn]
+      FunctionName: !Ref CrawlFunction
 
   #################################################
   # SQS end
@@ -78,10 +74,27 @@ Resources:
       Role: !GetAtt LambdaRole.Arn
       Policies:
       Description: Starts crawling process
-      Timeout: 300
+      Timeout: 10
       Environment:
         Variables:
           CATALOG_CRAWL_QUEUE: !Ref CatalogCrawlQueue
+      DeadLetterQueue:
+        Type: 'SQS'
+        TargetArn: !GetAtt GeneralLambdaDLQ.Arn
+
+  CrawlFunction:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      CodeUri: crawl
+      Handler: crawl.handler
+      Role: !GetAtt LambdaRole.Arn
+      Policies:
+      Description: Traverse the crawl queue
+      Timeout: 180
+      Environment:
+        Variables:
+          CATALOG_CRAWL_QUEUE: !Ref CatalogCrawlQueue
+          MAX_CHILDREN: 1
       DeadLetterQueue:
         Type: 'SQS'
         TargetArn: !GetAtt GeneralLambdaDLQ.Arn
