@@ -1,0 +1,18 @@
+{
+  "name": "CBERS4 AWFI 062/093",
+  "description": "CBERS4 AWFI camera path 062 row 093 catalog",
+  "links": [
+    {
+      "rel": "self",
+      "href": "catalog.json"
+    },
+    {
+      "rel": "parent",
+      "href": "../catalog.json"
+    },
+    {
+      "rel": "item",
+      "href": "CBERS_4_AWFI_20180411_062_093_L2.json"
+    }
+  ]
+}
